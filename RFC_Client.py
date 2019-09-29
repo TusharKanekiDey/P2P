@@ -5,6 +5,7 @@ import socket
 import pickle
 import csv
 import sys
+import platform
 
 server, BUFFER_SIZE = '127.0.0.1',2048
 print('enter your hostname')
@@ -13,7 +14,7 @@ farg=sys.argv[0]
 loc = os.path.dirname(farg)+'\\RFC_Files\\'+host
 
 class Peer:
-    def __init__(self,host,port,cookie):
+    def __init__(self,host,port,cookie=None):
         self.host=host
         self.port=port
         self.cookie=cookie
@@ -100,6 +101,7 @@ class RFClist():
             else:
                 prev.next = tmp.next
 
+
     def write_csv(self):
         dup = check_dup(self, loc)
         tmp = self.head
@@ -120,6 +122,29 @@ class RFClist():
                 tmp = tmp.getNext()
         f.close()
 
+def check_dup(objectRecv,loc):
+	list1=[]
+	list2=[]
+	dup=[]
+	with open(loc+'\\index_list.csv','r') as f:
+		reader=csv.reader(f)
+		for row in reader:
+			list1.append(row[2])
+
+	f.close()
+	tmp=objectRecv.head
+	while(tmp!=None):
+		index=tmp.getNode()
+		list2.append(index.hostname)
+		tmp=tmp.getNext()
+
+	set1=set(list1)
+	set2=set(list2)
+	for p in list(set1):
+		for i in range(len(list(set2))):
+			if(p==list(set2)[i]):
+				dup.append(p)
+	return dup
 
 def main():
     print('Enter which server you want to connect to ? 1. RSServer 2.RFCServer of another Peer')
@@ -147,21 +172,21 @@ def main():
         except IOError:
             if messageType == "Register":
                 cookie = 'None'
-                sendMessage = 'GET ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + hostname + ' <cr> <lf>\nPort ' + str(
+                sendMessage = 'GET ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nPort ' + str(
                         serverPort) + ' <cr> <lf>\nCookie ' + str(cookie) + ' <cr> <lf>\nOperating System ' + str(
                         platform.platform()) + ' <cr> <lf>\n'
                 print(sendMessage)
                 client_connect.send(sendMessage.encode(mf))
                 try:  # The peer receives its cookie information only if it's registering for the first time.
-                    P0 = Peer(hostname, serverPort)
+                    P0 = Peer(host, serverPort)
                     recvMessage = (client_connect.recv(BUFFER_SIZE).decode('utf-8'))
                     print('From Server\n', recvMessage)
                     P0.cookie = int(
                         recvMessage[recvMessage.index('cookie') + 6:recvMessage.index('<cr> <lf>\nFrom')])
                     print('Cookie information updated: Cookie is ', P0.cookie)
-                    print('Saving cookie in ' + hostname + 'Cookie.txt')
+                    print('Saving cookie in ' + host + 'Cookie.txt')
                     attributes = vars(P0)
-                    f_name = hostname + 'Cookie.txt'
+                    f_name = host + 'Cookie.txt'
                     file = open(f_name, 'w')
                     file.write(pprint.pformat(attributes))
                     file.close()
@@ -170,7 +195,7 @@ def main():
                     client_connect.close()
 
             if messageType == 'PQuery':
-                sendMessage = 'GET ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + hostname + ' <cr> <lf>\nserverPort ' + str(
+                sendMessage = 'GET ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nserverPort ' + str(
                     serverPort) + ' <cr> <lf>\nCookie ' + str(cookie) + ' <cr> <lf>\nOperating System ' + str(
                     platform.platform()) + ' <cr> <lf>\n'
                 print(sendMessage)
@@ -198,7 +223,7 @@ def main():
                     client_connect.close()
 
             if messageType == 'Leave':
-                sendMessage = 'POST ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + hostname + ' <cr> <lf>\nPort ' + str(
+                sendMessage = 'POST ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nPort ' + str(
                     serverPort) + ' <cr> <lf>\nCookie ' + str(cookie) + ' <cr> <lf>\nOperating System ' + str(
                     platform.platform()) + ' <cr> <lf>\n'
                 print(sendMessage)
@@ -211,7 +236,7 @@ def main():
                     print('Peer already left')
 
             if messageType == 'KeepAlive':
-                sendMessage = 'POST ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + hostname + ' <cr> <lf>\nPort ' + str(
+                sendMessage = 'POST ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nPort ' + str(
                     serverPort) + ' <cr> <lf>\nCookie ' + str(cookie) + ' <cr> <lf>\nOperating System ' + str(
                     platform.platform()) + ' <cr> <lf>\n'
                 print(sendMessage)
@@ -223,13 +248,13 @@ def main():
     elif (type == '2'):  # If the client peer wants to connect to an RFC server
         print('Connecting to RFCServer:', serverPort)
         clientSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        clientSock.connect((serverHost, serverPort))
+        clientSock.connect((server, serverPort))
         print('Enter your hostname')
         print('Enter the type of action: 1.RFCQuery  2.GetRFC')
         messageType = input()
         if messageType == 'RFCQuery':
             keep_Alive = False
-            sendMessage = 'GET ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + hostname + ' <cr> <lf>\nOperating System ' + str(
+            sendMessage = 'GET ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nOperating System ' + str(
                 platform.platform()) + ' <cr> <lf>\nKEEP_ALIVE ' + str(keep_Alive)
             print(sendMessage)
             clientSock.send(sendMessage.encode(mf))
@@ -242,7 +267,7 @@ def main():
                 movnode = objectRecv1.head
                 if (movnode != None):
                     detail = movnode.rfc_obj
-                    print(detail.rfc_no, ',', detail.title, ',', detail.hostname)
+                    print(detail.rfc_no, ',', detail.title, ',', detail.host)
                 while (movnode.next != None):
                     movnode = movnode.next()
                     detail = movnode.rfc_obj
@@ -254,7 +279,7 @@ def main():
             print('enter rfc number to download')
             rfc_no = input()
             keep_Alive = False
-            sendMessage = 'GET ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + hostname + ' <cr> <lf>\nOperating System ' + str(
+            sendMessage = 'GET ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nOperating System ' + str(
                 platform.platform()) + ' <cr> <lf>RFC_NO ' + rfc_no + ' <cr> <lf>\nKEEP_ALIVE ' + str(keep_Alive)
             print(sendMessage)
             clientSock.send(sendMessage.encode('utf-8'))
