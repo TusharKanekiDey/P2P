@@ -121,16 +121,14 @@ class RFClist():
         f.close()
 
 
-
-
 def main():
     print('Enter which server you want to connect to ? 1. RSServer 2.RFCServer of another Peer')
-    type = input()
+    type = int(input())
     objectRecv = Peerlist()
     newObjectRecv = RFClist()
     client_connect = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    serverPort = int(sys.argv[1])
-    #serverPort = 4434
+    #serverPort = int(sys.argv[1])
+    serverPort = 4434
     mf = 'utf-8'
 
     if(type==1):
@@ -140,7 +138,7 @@ def main():
         PORT=65500
 
         client_connect.connect((HOST, PORT))
-        f_name = hostname + 'Cookie.txt'  # Cookie information is being maintained in a file
+        f_name = host + 'Cookie.txt'  # Cookie information is being maintained in a file
         try:
             file = open(f_name, 'r')
             peerInfo = ast.literal_eval(file.read())
