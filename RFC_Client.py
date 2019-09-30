@@ -146,14 +146,15 @@ def check_dup(objectRecv,loc):
 				dup.append(p)
 	return dup
 
+
 def main():
     print('Enter which server you want to connect to ? 1. RSServer 2.RFCServer of another Peer')
     type = int(input())
     objectRecv = Peerlist()
     newObjectRecv = RFClist()
     client_connect = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    #serverPort = int(sys.argv[1])
-    serverPort = 4434
+    serverPort = int(sys.argv[1])
+    #serverPort = 4434
     mf = 'utf-8'
 
     if(type==1):
@@ -162,142 +163,106 @@ def main():
         HOST='localhost'
         PORT=65500
 
-        client_connect.connect((HOST, PORT))
+        client_connect.connect((HOST, PORT))  #connecting to RS Server
+
         f_name = host + 'Cookie.txt'  # Cookie information is being maintained in a file
         try:
-            file = open(f_name, 'r')
-            peerInfo = ast.literal_eval(file.read())
-            file.close()
-            cookie = peerInfo.get('cookie', 'None')
+            with open(f_name) as f:
+                content = f.readlines()
+            send_cookie = content[0]
+
         except IOError:
-            if messageType == "Register":
-                cookie = 'None'
-                sendMessage = 'GET ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nPort ' + str(
-                        serverPort) + ' <cr> <lf>\nCookie ' + str(cookie) + ' <cr> <lf>\nOperating System ' + str(
-                        platform.platform()) + ' <cr> <lf>\n'
-                print(sendMessage)
-                client_connect.send(sendMessage.encode(mf))
-                try:  # The peer receives its cookie information only if it's registering for the first time.
-                    P0 = Peer(host, serverPort)
-                    recvMessage = (client_connect.recv(BUFFER_SIZE).decode('utf-8'))
-                    print('From Server\n', recvMessage)
-                    P0.cookie = int(
-                        recvMessage[recvMessage.index('cookie') + 6:recvMessage.index('<cr> <lf>\nFrom')])
-                    print('Cookie information updated: Cookie is ', P0.cookie)
-                    print('Saving cookie in ' + host + 'Cookie.txt')
-                    attributes = vars(P0)
-                    f_name = host + 'Cookie.txt'
-                    file = open(f_name, 'w')
-                    file.write(pprint.pformat(attributes))
-                    file.close()
-                except:
-                    print('Already Registered and active')
-                    client_connect.close()
+            send_cookie = None
 
-            if messageType == 'PQuery':
-                sendMessage = 'GET ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nserverPort ' + str(
-                    serverPort) + ' <cr> <lf>\nCookie ' + str(cookie) + ' <cr> <lf>\nOperating System ' + str(
-                    platform.platform()) + ' <cr> <lf>\n'
-                print(sendMessage)
-                client_connect.send(sendMessage.encode(mf))
-                recvMessage = (client_connect.recv(BUFFER_SIZE).decode(mf))
-                print('From Server\n', recvMessage)
-                try:  # The RS Server sends the list of active peers only if the requesting peer is currently active and has already registered.
-                    l_file = client_connect.makefile(mode='rb')
-                    objectRecv = pickle.load(l_file)
-                    l_file.close()
-                    if (objectRecv.head == None):
-                        print('No Other peers are active')
-                    else:
-                        print('List of active peers\n')
-                        movnode = objectRecv.head
-                        if (movnode!= None):
-                            detail=movnode.peer_obj
-                            print(detail.hostname, detail.port)
-                        while(movnode.next!= None):
-                            movnode=movnode.next()
-                            detail = movnode.peer_obj
-                            print(detail.hostname, detail.port)
-                except:
-                    print('Peer not registered or left. Register to get PeerList')
-                    client_connect.close()
+        global_cookie = send_cookie
 
-            if messageType == 'Leave':
-                sendMessage = 'POST ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nPort ' + str(
-                    serverPort) + ' <cr> <lf>\nCookie ' + str(cookie) + ' <cr> <lf>\nOperating System ' + str(
+        if messageType == "Register":
+                
+            sendMessage = 'GET ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nPort ' + str(
+                    serverPort) + ' <cr> <lf>\nCookie ' + str(send_cookie) + ' <cr> <lf>\nOperating System ' + str(
                     platform.platform()) + ' <cr> <lf>\n'
-                print(sendMessage)
-                client_connect.send(sendMessage.encode(mf))
-                try:
-                    recvMessage = (client_connect.recv(BUFFER_SIZE).decode(mf))
-                    print('From Server\n', recvMessage)
-                    client_connect.close()
-                except:
-                    print('Peer already left')
+            print(sendMessage)
+            client_connect.send(sendMessage.encode('utf-8'))
+            #try:  # The peer receives its cookie information only if it's registering for the first time.
+        
+            recvMessage = (client_connect.recv(BUFFER_SIZE).decode('utf-8'))
+            print('From Server\n', recvMessage)
+            recv_cookie = int(
+                recvMessage[recvMessage.index('cookie') + 6:recvMessage.index('<cr> <lf>\nFrom')])
+            if 'Already' in recvMessage:
+                print('Already Registered')
+                global_cookie = recv_cookie
+                client_connect.close()
+            else:
+                print('Cookie information updated: Cookie is ', recv_cookie)
+                print('Saving cookie in ' + host + 'Cookie.txt')
 
-            if messageType == 'KeepAlive':
-                sendMessage = 'POST ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nPort ' + str(
-                    serverPort) + ' <cr> <lf>\nCookie ' + str(cookie) + ' <cr> <lf>\nOperating System ' + str(
-                    platform.platform()) + ' <cr> <lf>\n'
-                print(sendMessage)
-                client_connect.send(sendMessage.encode(mf))
-                recvMessage = client_connect.recv(BUFFER_SIZE).decode(mf)
+                global_cookie = recv_cookie                
+                f_name = host + 'Cookie.txt'
+                file = open(f_name, 'w')
+                file.write(str(recv_cookie))
+                file.close()
+            #except:
+                #print('Already Registered and active')
+                #global_cookie = send_cookie
+                #client_connect.close()
+###############################################################################################
+
+        if messageType == 'PQuery':
+
+            sendMessage = 'GET ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nserverPort ' + str(
+                serverPort) + ' <cr> <lf>\nCookie ' + str(global_cookie) + ' <cr> <lf>\nOperating System ' + str(
+                platform.platform()) + ' <cr> <lf>\n'
+            print(sendMessage)
+            client_connect.send(sendMessage.encode(mf))
+            recvMessage = (client_connect.recv(BUFFER_SIZE).decode('utf-8'))
+            print('From Server\n', recvMessage)
+            #try:  # The RS Server sends the list of active peers only if the requesting peer is currently active and has already registered.
+            l_file = client_connect.makefile(mode='rb')
+            objectRecv = pickle.load(l_file)
+            l_file.close()
+            if (objectRecv.head == None):
+                print('No Other peers are active')
+            else:
+                print('List of active peers\n')
+                movnode = objectRecv.head
+                if (movnode!= None):
+                    detail=movnode.peer_obj
+                    print(detail.host, detail.port)
+                while(movnode.next!= None):
+                    movnode=movnode.next
+                    detail = movnode.peer_obj
+                    print(detail.host, detail.port)
+            #except:
+            #print('Peer not registered or left. Register to get PeerList')
+            client_connect.close()
+ ##########################################################################################################
+
+        if messageType == 'Leave':
+            sendMessage = 'POST ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nPort ' + str(
+                 serverPort) + ' <cr> <lf>\nCookie ' + str(global_cookie) + ' <cr> <lf>\nOperating System ' + str(
+                platform.platform()) + ' <cr> <lf>\n'
+            print(sendMessage)
+            client_connect.send(sendMessage.encode('utf-8'))
+            try:
+                recvMessage = (client_connect.recv(BUFFER_SIZE).decode('utf-8'))
                 print('From Server\n', recvMessage)
                 client_connect.close()
+            except:
+                print('Peer already left')
 
-    elif (type == '2'):  # If the client peer wants to connect to an RFC server
-        print('Connecting to RFCServer:', serverPort)
-        clientSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        clientSock.connect((server, serverPort))
-        print('Enter your hostname')
-        print('Enter the type of action: 1.RFCQuery  2.GetRFC')
-        messageType = input()
-        if messageType == 'RFCQuery':
-            keep_Alive = False
-            sendMessage = 'GET ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nOperating System ' + str(
-                platform.platform()) + ' <cr> <lf>\nKEEP_ALIVE ' + str(keep_Alive)
+        if messageType == 'KeepAlive':
+            sendMessage = 'POST ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nPort ' + str(
+                serverPort) + ' <cr> <lf>\nCookie ' + str(global_cookie) + ' <cr> <lf>\nOperating System ' + str(
+                platform.platform()) + ' <cr> <lf>\n'
             print(sendMessage)
-            clientSock.send(sendMessage.encode(mf))
-            recvMessage = clientSock.recv(BUFFER_SIZE).decode(mf)
+            client_connect.send(sendMessage.encode('utf-8'))
+            recvMessage = client_connect.recv(BUFFER_SIZE).decode('utf-8')
             print('From Server\n', recvMessage)
-            if ('RFCQuery Found' in recvMessage):
-                file = clientSock.makefile(mode='rb')
-                objectRecv1 = pickle.load(file)
-                print('RFC Index sent by the server\n')
-                movnode = objectRecv1.head
-                if (movnode != None):
-                    detail = movnode.rfc_obj
-                    print(detail.rfc_no, ',', detail.title, ',', detail.host)
-                while (movnode.next != None):
-                    movnode = movnode.next()
-                    detail = movnode.rfc_obj
-                    print(detail.rfc_no, ',', detail.title, ',', detail.hostname)
-                file.close()
-                objectRecv1.write_csv()
+            client_connect.close()
 
-        if messageType == 'GetRFC':
-            print('enter rfc number to download')
-            rfc_no = input()
-            keep_Alive = False
-            sendMessage = 'GET ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nOperating System ' + str(
-                platform.platform()) + ' <cr> <lf>RFC_NO ' + rfc_no + ' <cr> <lf>\nKEEP_ALIVE ' + str(keep_Alive)
-            print(sendMessage)
-            clientSock.send(sendMessage.encode('utf-8'))
-            filename = 'rfc' + rfc_no + '.txt'
-            f = open(loc + '\\' + filename, 'wb')
-            recvMessage = clientSock.recv(BUFFER_SIZE).decode('utf-8')
-            print('From Server\n', recvMessage)
-            fileSize = int(recvMessage[recvMessage.index('Content Length ') + 15:])
-            while (fileSize > 0):
-                print('receiving data...')
-                data = clientSock.recv(BUFFER_SIZE)
-                print('data=%s', data)
-                f.write(data)
-                fileSize = fileSize - BUFFER_SIZE
-            f.close()
-            print('Successfully got the file')
-        clientSock.close()
-                    
+
+
 
 
 
