@@ -11,7 +11,12 @@ server, BUFFER_SIZE = '127.0.0.1',2048
 print('enter your hostname')
 host=input()
 farg=sys.argv[0]
-loc = os.path.dirname(farg)+'\\RFC_Files\\'+host
+#loc = os.path.dirname(farg)+'\\RFC_Files\\'+host
+loc = os.path.dirname(farg) +host+'/RFC_Files'
+print(loc)
+#RFC_reqd = [4,5,6,7]
+#RFC_reqd_set = set(RFC_reqd)
+
 
 class Peer:
     def __init__(self,host,port,cookie=None):
@@ -47,26 +52,20 @@ class Peerlist():
                 prev = tmp
                 tmp = tmp.next
 
-            if prev == None:
-                self.head = tmp.next
-            else:
-                prev.next = tmp.next
+        if prev == None:
+            self.head = tmp.next
+        else:
+            prev.next = tmp.next
                 
-def isPresent(plist, host):
-    tmp = plist.head
-    while (tmp != None):
-        p_obj = tmp.peer_obj
-        if p_obj.host == host:
-            return True
-        tmp = tmp.next
-    return False
 
 
 
-class RSPeer:
-    def __init__(self,host,port):
-        self.host = host
-        self.port = port
+
+class RFCIndex:
+    def __init__(self,rfc_no,tile,hname):
+        self.rfc_no = rfc_no
+        self.title = title
+        self.hostname = hname
 
 class RFCNode():
     def __init__(self, rfc):
@@ -96,65 +95,56 @@ class RFClist():
                 prev = tmp
                 tmp = tmp.next
 
-            if prev == None:
-                self.head = tmp.next
-            else:
-                prev.next = tmp.next
+        if prev == None:
+            self.head = tmp.next
+        else:
+            prev.next = tmp.next
 
 
-    def write_csv(self):
-        dup = check_dup(self, loc)
+    def merge_RFC(self):
+        dup = self.get_duplicate(loc)
         tmp = self.head
 
-        with open(loc + '\\index_list.csv', 'a') as f:
+        with open(loc + '/index_list.csv', 'a') as f:
             while (tmp != None):
                 index = tmp.rfc_obj
-                if (len(dup) == 0):
-                    row = index.rfc_no + ',' + index.title + ',' + index.hostname + '\n'
+                if (index.rfc_no not in dup):
+                    row = '\n'+index.rfc_no + ',' + index.title + ',' + index.hostname 
                     f.write(row)
                 else:
-                    if (index.hostname in dup):
-                        print('Entry found')
-                    else:
-                        row = index.rfc_no + ',' + index.title + ',' + index.hostname + '\n'
-                        f.write(row)
-
-                tmp = tmp.getNext()
+                    print('RFC already found')
+                tmp = tmp.next
         f.close()
 
-def check_dup(objectRecv,loc):
-	list1=[]
-	list2=[]
-	dup=[]
-	with open(loc+'\\index_list.csv','r') as f:
-		reader=csv.reader(f)
-		for row in reader:
-			list1.append(row[2])
+    def get_duplicate(self,loc):
+        list1=set()
+        dup=set()
 
-	f.close()
-	tmp=objectRecv.head
-	while(tmp!=None):
-		index=tmp.getNode()
-		list2.append(index.hostname)
-		tmp=tmp.getNext()
+        with open(loc+'/index_list.csv','r') as f:
+            reader=csv.reader(f)
+            for row in reader:
+                #print(row)
+                if len(row) != 0:
+                    list1.add(row[0])
 
-	set1=set(list1)
-	set2=set(list2)
-	for p in list(set1):
-		for i in range(len(list(set2))):
-			if(p==list(set2)[i]):
-				dup.append(p)
-	return dup
+        f.close()
+        tmp=self.head
+        while(tmp!=None):
+            r_obj=tmp.rfc_obj
+            if r_obj.rfc_no  in list1:
+                dup.add(r_obj.rfc_no)
+            tmp=tmp.next
+        return dup
 
 
 def main():
     print('Enter which server you want to connect to ? 1. RSServer 2.RFCServer of another Peer')
     type = int(input())
     objectRecv = Peerlist()
-    newObjectRecv = RFClist()
+    RFC_recv = RFClist()
     client_connect = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     serverPort = int(sys.argv[1])
-    #serverPort = 4434
+    
     mf = 'utf-8'
 
     if(type==1):
@@ -206,7 +196,7 @@ def main():
                 #print('Already Registered and active')
                 #global_cookie = send_cookie
                 #client_connect.close()
-###############################################################################################
+
 
         if messageType == 'PQuery':
 
@@ -225,18 +215,27 @@ def main():
                 print('No Other peers are active')
             else:
                 print('List of active peers\n')
+                #writing active peers to file
+                if os.path.exists(loc+'/'+'active.csv'):
+                    os.remove(loc+'/'+'active.csv')
+                active_f = open(loc+'/'+'active.csv','w+')
+
+
                 movnode = objectRecv.head
                 if (movnode!= None):
                     detail=movnode.peer_obj
                     print(detail.host, detail.port)
+                    active_f.write(detail.host+','+detail.port)
                 while(movnode.next!= None):
                     movnode=movnode.next
                     detail = movnode.peer_obj
                     print(detail.host, detail.port)
+                    active_f.write(detail.host+','+detail.port)
+                active_f.close()
             #except:
             #print('Peer not registered or left. Register to get PeerList')
             client_connect.close()
- ##########################################################################################################
+ 
 
         if messageType == 'Leave':
             sendMessage = 'POST ' + messageType + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nPort ' + str(
@@ -260,6 +259,108 @@ def main():
             recvMessage = client_connect.recv(BUFFER_SIZE).decode('utf-8')
             print('From Server\n', recvMessage)
             client_connect.close()
+        ######################################################################################################################################
+        #end of RS Server communication
+
+    elif type==2:
+        flag = 0
+        RFC_reqd_set = set()
+        print('Enter the number of RFCs you want to download:')
+        no_RFC = int(input())
+        while no_RFC != 0:
+            print('Enter the RFC number you want to download:')
+            numb = input()
+            RFC_reqd_set.add(numb)
+            no_RFC = no_RFC -1
+        
+        with open(loc+'/active.csv','r') as act_f:
+            active_reader = csv.reader(act_f)
+            for active_row in active_reader:
+                serverport = int(active_row[1])
+                print(serverport)
+            #tmp = objectRecv.head #active peerlist head
+            #while(tmp!=None):
+                print('entered the loop')
+                #p_obj = tmp.peer_obj
+                #serverport = p_obj.port
+                clientSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                clientSock.connect((server,serverport))
+
+                #RFC Query
+                send_msg = 'GET RFC Query'  + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nOperating System '+ str(platform.platform()) 
+                print(send_msg)
+                clientSock.send(send_msg.encode('utf-8'))
+
+                recv_msg =  clientSock.recv(BUFFER_SIZE).decode('utf-8') 
+                print('From Server:\n',recv_msg)
+
+                if 'RFCQuery Found' in  recv_msg:
+                    file=clientSock.makefile(mode='rb')
+                    RFC_recv = pickle.load(file)
+
+                    file.close()
+                    RFC_recv.merge_RFC()
+                else:
+                    print('RFC Query not found. Check in the location')
+                
+                #send server the number of RFC's it has that it will download
+                rfc_it_has =0
+                with open(loc+'/index_list.csv','r') as f:
+                    reader = csv.reader(f)
+                    for row in reader:
+                        if len(row) != 0 and row[0] in RFC_reqd_set:
+                            rfc_it_has = rfc_it_has +1
+                f.close()
+
+                send_msg = 'GET Check ' + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nOperating System '+ str(platform.platform()) +' <cr> <lf>\n Number ' + str(rfc_it_has) + ' <cr> <lf>NN\n'
+                print(send_msg)
+                clientSock.send(send_msg.encode('utf-8'))
+
+
+                
+                with open(loc+'/index_list.csv','r') as f:
+                    reader=csv.reader(f)
+                    for row in reader:
+                        if len(RFC_reqd_set) == 0:
+                            flag =1
+                            break
+
+                        if len(row)!= 0 and row[0] in RFC_reqd_set:
+                            send_msg = 'GET GetRFC ' + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nOperating System '+ str(platform.platform()) +' <cr> <lf>RFC_NO ' + row[0] + ' <cr> <lf>NN\n'
+                            clientSock.send(send_msg.encode('utf-8'))
+                            filename = 'rfc'+row[0]+'.txt'
+                            ff = open(loc+'/'+filename, 'wb')
+                            recv_msg = clientSock.recv(BUFFER_SIZE).decode('utf-8')
+                            print('Server sent message\n', recv_msg)
+                            fsize = int(recv_msg[recv_msg.index('Content Length ')+15:])
+                            while fsize > 0:
+                                print('..... data transfer....\n')
+                                data = clientSock.recv(BUFFER_SIZE)
+                                ff.write(data)
+                                fsize = fsize - BUFFER_SIZE
+                            ff.close()
+                            print("Succesful file transfer\n")
+                            RFC_reqd_set.remove(row[0]) #removing RFC's transferred
+                f.close()
+                clientSock.close()
+                if flag ==1:
+                    break
+
+            #tmp = tmp.next #go to next active peer list
+            act_f.close()
+
+
+
+            
+
+
+
+
+
+
+
+
+
 
 
 
