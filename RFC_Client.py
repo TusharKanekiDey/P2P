@@ -11,7 +11,6 @@ server, BUFFER_SIZE = '127.0.0.1',2048
 print('enter your hostname')
 host=input()
 farg=sys.argv[0]
-#loc = os.path.dirname(farg)+'\\RFC_Files\\'+host
 loc = os.path.dirname(farg) +host+'/RFC_Files'
 print(loc)
 #RFC_reqd = [4,5,6,7]
@@ -208,9 +207,26 @@ def main():
             recvMessage = (client_connect.recv(BUFFER_SIZE).decode('utf-8'))
             print('From Server\n', recvMessage)
             #try:  # The RS Server sends the list of active peers only if the requesting peer is currently active and has already registered.
-            l_file = client_connect.makefile(mode='rb')
-            objectRecv = pickle.load(l_file)
-            l_file.close()
+            #l_file = client_connect.makefile(mode='rb')
+            #objectRecv = pickle.load(l_file) 
+            #l_file.close()
+            data =''
+            while True:
+                recv_msg = client_connect.recv(BUFFER_SIZE)
+                recv_msg = recv_msg.decode('utf-8')
+                data += recv_msg
+                if len(recv_msg) < BUFFER_SIZE:
+                    break
+            
+            data = data.split('*')
+            for dat in data:
+                if len(dat) >0:
+                    slist = dat.split(",")
+                    if len(slist) > 0:
+                        n_pobject = Peer(slist[0],slist[1])
+                        objectRecv.add(n_pobject)
+                
+
             if (objectRecv.head == None):
                 print('No Other peers are active')
             else:
@@ -225,12 +241,12 @@ def main():
                 if (movnode!= None):
                     detail=movnode.peer_obj
                     print(detail.host, detail.port)
-                    active_f.write(detail.host+','+detail.port)
+                    active_f.write(detail.host+','+detail.port+'\n')
                 while(movnode.next!= None):
                     movnode=movnode.next
                     detail = movnode.peer_obj
                     print(detail.host, detail.port)
-                    active_f.write(detail.host+','+detail.port)
+                    active_f.write(detail.host+','+detail.port+'\n')
                 active_f.close()
             #except:
             #print('Peer not registered or left. Register to get PeerList')

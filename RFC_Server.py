@@ -107,20 +107,21 @@ class peerThread(threading.Thread):
             fname = 'rfc'+rfc_no+'.txt'
             try:
                 f = open(loc+'/'+fname,'rb')
+                fsize = os.stat(loc +'/'+fname).st_size
+                #print("fsize is ",fsize)
+                send_msg = 'POST RFC Found<cr> <lf>\nFrom '+ socket.gethostname() +' <cr> <lf>\nLast Message Sent: '+str(datetime.now())+' <cr> <lf>\nOperating System ' + str(platform.platform()) + '<cr> <lf>\nContent Length ' + str(fsize)
+                self.csocket.send(send_msg.encode('utf-8'))
+                l=f.read(BUFFER_SIZE)
+                while fsize>0:
+                    self.csocket.send(l)
+                    fsize = fsize - BUFFER_SIZE
+                    l=f.read(BUFFER_SIZE)
+                    if fsize<=0:
+                        f.close()
             except IOError:
                 print('Unable to open the file\n')
 
-            fsize = os.stat(loc +'/'+fname).st_size
-            #print("fsize is ",fsize)
-            send_msg = 'POST RFC Found<cr> <lf>\nFrom '+ socket.gethostname() +' <cr> <lf>\nLast Message Sent: '+str(datetime.now())+' <cr> <lf>\nOperating System ' + str(platform.platform()) + '<cr> <lf>\nContent Length ' + str(fsize)
-            self.csocket.send(send_msg.encode('utf-8'))
-            l=f.read(BUFFER_SIZE)
-            while fsize>0:
-                self.csocket.send(l)
-                fsize = fsize - BUFFER_SIZE
-                l=f.read(BUFFER_SIZE)
-                if fsize<=0:
-                    f.close()
+            
             
             loop_no = loop_no-1
 
