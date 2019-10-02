@@ -39,7 +39,7 @@ class Peer():
             self.cookie = set_cook()
             self.active_no =1
         self.active_flag = True
-        self.TTL = TTLThread(40)
+        self.TTL = 7200
         self.port = port
         self.recent_Time = time.strftime("%H:%M:%S")
 
@@ -74,6 +74,14 @@ class Peerlist():
             self.head = tmp.next
         else:
             prev.next = tmp.next
+    
+    def show(self):
+        tmp=self.head
+        while tmp!= None:
+            p_obj = tmp.peer_obj
+            print(p_obj.host +', '+p_obj.port)
+            tmp = tmp.next
+
             
     
 def isPresent(plist,host):
@@ -130,7 +138,7 @@ def set_TTL(plist,host):
     while tmp!=None:
         p_obj = tmp.peer_obj
         if p_obj.host == host and p_obj.active_flag == True:
-            p_obj.TTL = 40
+            p_obj.TTL = 7200
             break
         tmp = tmp.next
     return False
@@ -192,15 +200,21 @@ class RSThread(threading.Thread):
 
         elif 'PQuery' in msg:
             active_peerlist = getActive(reg_peerlist)
+            active_peerlist.show()
 
             if isPresent(active_peerlist,host):
                 active_peerlist.delete(host) #sending all active peerlists without the host which requested
                 send_msg = 'POST PQuery Found<cr> <lf>\nFrom '+ socket.gethostname() +' <cr> <lf>\nLast Message Sent: '+str(datetime.now())+' <cr> <lf>\nOperating System ' + str(platform.platform())
                 self.csocket.send(send_msg.encode('utf-8'))
 
-                active_no = 0
+                
                 tmp_o = active_peerlist.head
                 data =''
+                data1 = 'emptylist'
+                if tmp_o == None:
+                    print("entered empty case")
+                    self.csocket.sendall(data1.encode('utf-8'))
+                
                 while tmp_o!= None:
                     tmp_obj = tmp_o.peer_obj
                     data += tmp_obj.host + ','+tmp_obj.port+'*'
@@ -245,12 +259,14 @@ class RSThread(threading.Thread):
 
 def activeMain(plist):
     while True:
-        time.sleep(3)
+        #time.sleep(3)
         active_plist = getActive(plist)
         tmp1 = active_plist.head
         if tmp1 !=None:
             while tmp1!=None:
                 p_obj1 = tmp1.peer_obj
+                time.sleep(1)
+                p_obj1.TTL = p_obj1.TTL-1
                 if p_obj1.TTL == 0:
                     setStatus(reg_peerlist,p_obj1.host,False)
                 tmp1 = tmp1.next

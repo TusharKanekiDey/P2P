@@ -211,45 +211,51 @@ def main():
             #objectRecv = pickle.load(l_file) 
             #l_file.close()
             data =''
+            flag_ch =0
             while True:
                 recv_msg = client_connect.recv(BUFFER_SIZE)
                 recv_msg = recv_msg.decode('utf-8')
+                if recv_msg == 'emptylist':
+                    flag_ch=1
+                    break
                 data += recv_msg
                 if len(recv_msg) < BUFFER_SIZE:
                     break
+
+            if flag_ch !=1: #checking data is empty or not
             
-            data = data.split('*')
-            for dat in data:
-                if len(dat) >0:
-                    slist = dat.split(",")
-                    if len(slist) > 0:
-                        n_pobject = Peer(slist[0],slist[1])
-                        objectRecv.add(n_pobject)
-                
+                data = data.split('*')
+                for dat in data:
+                    if len(dat) >0:
+                        slist = dat.split(",")
+                        if len(slist) > 0:
+                            n_pobject = Peer(slist[0],slist[1])
+                            objectRecv.add(n_pobject)
+                    
 
-            if (objectRecv.head == None):
-                print('No Other peers are active')
+                if (objectRecv.head == None):
+                    print('No Other peers are active')
+                else:
+                    print('List of active peers\n')
+                    #writing active peers to file
+                    if os.path.exists(loc+'/'+'active.csv'):
+                        os.remove(loc+'/'+'active.csv')
+                    active_f = open(loc+'/'+'active.csv','w+')
+
+
+                    movnode = objectRecv.head
+                    if (movnode!= None):
+                        detail=movnode.peer_obj
+                        print(detail.host, detail.port)
+                        active_f.write(detail.host+','+detail.port+'\n')
+                    while(movnode.next!= None):
+                        movnode=movnode.next
+                        detail = movnode.peer_obj
+                        print(detail.host, detail.port)
+                        active_f.write(detail.host+','+detail.port+'\n')
+                    active_f.close()
             else:
-                print('List of active peers\n')
-                #writing active peers to file
-                if os.path.exists(loc+'/'+'active.csv'):
-                    os.remove(loc+'/'+'active.csv')
-                active_f = open(loc+'/'+'active.csv','w+')
-
-
-                movnode = objectRecv.head
-                if (movnode!= None):
-                    detail=movnode.peer_obj
-                    print(detail.host, detail.port)
-                    active_f.write(detail.host+','+detail.port+'\n')
-                while(movnode.next!= None):
-                    movnode=movnode.next
-                    detail = movnode.peer_obj
-                    print(detail.host, detail.port)
-                    active_f.write(detail.host+','+detail.port+'\n')
-                active_f.close()
-            #except:
-            #print('Peer not registered or left. Register to get PeerList')
+                print('No other peers are active')
             client_connect.close()
  
 
@@ -341,7 +347,10 @@ def main():
                             flag =1
                             break
 
+                        #cum_time_list =[]
+                        #cum_time = 0
                         if len(row)!= 0 and row[0] in RFC_reqd_set:
+                            #start_time = time.time()
                             send_msg = 'GET GetRFC ' + ' P2P/DI-1.1 <cr> <lf>\nHost ' + host + ' <cr> <lf>\nOperating System '+ str(platform.platform()) +' <cr> <lf>RFC_NO ' + row[0] + ' <cr> <lf>NN\n'
                             clientSock.send(send_msg.encode('utf-8'))
                             filename = 'rfc'+row[0]+'.txt'
@@ -357,6 +366,10 @@ def main():
                             ff.close()
                             print("Succesful file transfer\n")
                             RFC_reqd_set.remove(row[0]) #removing RFC's transferred
+                            #end_time = time.time()
+                        #cum_time+= end_time - start_time
+                        #cum_time_list.append(cum_time)
+
                 f.close()
                 clientSock.close()
                 if flag ==1:
